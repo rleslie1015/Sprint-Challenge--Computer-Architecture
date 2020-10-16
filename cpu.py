@@ -21,7 +21,7 @@ PUSH = 0b01000101
 CMP = 0b10100111
 JMP = 0b01010100
 JEQ = 0b01010101
-
+JNE = 0b01010110
 SP = 7
 
 # bits to set for CMP IR
@@ -53,14 +53,9 @@ class CPU:
         self.branchtable[POP] = self.handle_pop
         self.branchtable[PUSH] = self.handle_push
         self.branchtable[CMP] = self.handle_cmp
-        self.branchtable[JEQ] = self.handle_jeq
-        self.branchtable[JMP] = self.handle_jmp
 
-    def handle_cmp(self):
+    def handle_cmp(self, operand_a, operand_b):
         # compare values
-        operand_a = self.ram_read(self.pc + 1)
-        operand_b = self.ram_read(self.pc + 2)
-        
         if self.reg[operand_a] < self.reg[operand_b]:
             self.FL = ltf
         elif self.reg[operand_a] > self.reg[operand_b]:
@@ -68,16 +63,9 @@ class CPU:
         else:
             self.FL = etf
         # FL bits: 00000LGE
-        self.FL = DecimalToBinary(self.FL)
-        print('flag', self.FL)
-        self.pc += 3
-
-    def handle_jeq(self):
-        print("JEQ not yet complete")
-        
-    def handle_jmp(self):
-        print("JMP not yet complete")
-
+        # self.FL = DecimalToBinary(self.FL)
+        # print('flag', self.FL)
+     
     def push_val(self, value):
         # Decrement the stack pointer
         self.reg[SP] -= 1
@@ -96,27 +84,28 @@ class CPU:
 
         return value
 
-    def handle_hlt(self):
+    def handle_hlt(self, operand_a, operand_b):
         sys.exit()
 
-    def handle_ldi(self):
-        operand_a = self.ram_read(self.pc + 1)
-        operand_b = self.ram_read(self.pc + 2)
+    def handle_ldi(self, operand_a, operand_b):
+        # operand_a = self.ram_read(self.pc + 1)
+        # operand_b = self.ram_read(self.pc + 2)
+        # print(operand_b)
         self.reg[operand_a] = operand_b
 
-    def handle_prn(self):
-        reg_num = self.ram[self.pc+1]
-        print(self.reg[reg_num])
+    def handle_prn(self, operand_a, operand_b):
+        # reg_num = self.ram[self.pc+1]
+        print(self.reg[operand_a])
 
-    def handle_mul(self):
-        num1 = self.reg[0]
-        num2 = self.reg[1]
+    def handle_mul(self, num1, num2):
+        # num1 = self.reg[0]
+        # num2 = self.reg[1]
         product = num1 * num2
         operand_c = self.ram_read(self.pc+1)
 
         self.reg[operand_c] = product
     
-    def handle_push(self):
+    def handle_push(self, operand_a, operand_b):
         # decrement the stack pointer
         self.reg[SP] -= 1 
 
@@ -129,7 +118,7 @@ class CPU:
         top_of_stack_addr = self.reg[7]
         self.ram[top_of_stack_addr] = value
     
-    def handle_pop(self):
+    def handle_pop(self, operand_a, operand_b):
         # get value from top of stack
         top_of_stack_addr = self.reg[SP]
         value = self.ram[top_of_stack_addr] # value we want to put in reg
@@ -160,7 +149,6 @@ class CPU:
                     # reading instructions line by line
                     try:
                         str_value = line.split("#")[0]
-                        print('this value can be converted to bnary', str_value)
                         value = int(str_value, 2) # casting into inter with base of 2 (binary)
                     
                     except ValueError: 
@@ -227,14 +215,36 @@ class CPU:
         """Run the CPU."""
         
         while not self.running:
-            self.trace()
+            # self.trace()
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+            # print(f'reg1 {operand_a}, reg2: {operand_b}')
             IR = self.ram[self.pc]
          
             if IR in self.branchtable:
-                self.branchtable[IR]() 
+                # find and run the intruction
+                self.branchtable[IR](operand_a, operand_b)
+                # set the pc depending on IR_len
+                IR_len = (IR >> 6) + 1  
+                self.pc += IR_len
+
+            # The following may set the pc directly 
+            elif IR == JMP:
+                # set the pc to the address stored in the given register
+                self.pc = self.reg[operand_a]
+
+            elif IR == JEQ:
+                # operand_a = self.ram[self.pc + 1]
+                if self.FL & etf:
+                    self.pc = self.reg[operand_a]
+                else:
+                    self.pc += 2
+            elif IR == JNE:
+                if self.FL & etf == 0:
+                    self.pc = self.reg[operand_a]
+                else:
+                    self.pc += 2 
             else:
-                raise Exception(f"IR {IR} not in branchtable")
+                raise Exception("IR not in branchtable or IR instruction not found")
             
-            # IR_len = (IR >> 6) + 1  # still not sure how this works 
-            # print('IR len', IR_len)
-            # self.pc += IR_len
+           

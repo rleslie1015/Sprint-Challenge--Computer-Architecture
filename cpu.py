@@ -2,14 +2,38 @@
 
 import sys
 
+"""
+- [ ] Add the `CMP` instruction and `equal` flag to your LS-8.
+
+- [ ] Add the `JMP` instruction.
+
+- [ ] Add the `JEQ` and `JNE` instructions.
+"""
+
 HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
+
 MUL = 0b10100010
 POP = 0b01000110
 PUSH = 0b01000101
 
+CMP = 0b10100111
+JMP = 0b01010100
+JEQ = 0b01010101
+
 SP = 7
+
+# bits to set for CMP IR
+ltf = 0b100
+gtf = 0b010
+etf = 0b001
+
+def DecimalToBinary(num): 
+    if num > 1: 
+        DecimalToBinary(num // 2) 
+    # print(num % 2, end = '')
+    return (num % 2)
 class CPU:
     """Main CPU class."""
 
@@ -20,6 +44,7 @@ class CPU:
         self.pc = 0
         self.running = False
         self.reg[SP]  = 0xf4
+        self.FL = 00000000
         self.branchtable = {}
         self.branchtable[HLT] = self.handle_hlt
         self.branchtable[LDI] = self.handle_ldi
@@ -27,7 +52,50 @@ class CPU:
         self.branchtable[MUL] = self.handle_mul
         self.branchtable[POP] = self.handle_pop
         self.branchtable[PUSH] = self.handle_push
-    
+        self.branchtable[CMP] = self.handle_cmp
+        self.branchtable[JEQ] = self.handle_jeq
+        self.branchtable[JMP] = self.handle_jmp
+
+    def handle_cmp(self):
+        # compare values
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        
+        if self.reg[operand_a] < self.reg[operand_b]:
+            self.FL = ltf
+        elif self.reg[operand_a] > self.reg[operand_b]:
+            self.FL = gtf
+        else:
+            self.FL = etf
+        # FL bits: 00000LGE
+        self.FL = DecimalToBinary(self.FL)
+        print('flag', self.FL)
+        self.pc += 3
+
+    def handle_jeq(self):
+        print("JEQ not yet complete")
+        
+    def handle_jmp(self):
+        print("JMP not yet complete")
+
+    def push_val(self, value):
+        # Decrement the stack pointer
+        self.reg[SP] -= 1
+
+        # Copy the value onto the stack
+        top_of_stack_addr = self.reg[SP]
+        self.ram[top_of_stack_addr] = value
+
+    def pop_val(self):
+        # Get value from top of stack
+        top_of_stack_addr = self.reg[SP]
+        value = self.ram[top_of_stack_addr] # Want to put this in a reg
+
+        # Increment the SP
+        self.reg[SP] += 1
+
+        return value
+
     def handle_hlt(self):
         sys.exit()
 
@@ -92,6 +160,7 @@ class CPU:
                     # reading instructions line by line
                     try:
                         str_value = line.split("#")[0]
+                        print('this value can be converted to bnary', str_value)
                         value = int(str_value, 2) # casting into inter with base of 2 (binary)
                     
                     except ValueError: 
@@ -122,6 +191,7 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
+        
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -157,11 +227,14 @@ class CPU:
         """Run the CPU."""
         
         while not self.running:
-            # self.trace()
-            instruction = self.ram[self.pc]
+            self.trace()
+            IR = self.ram[self.pc]
          
-            self.branchtable[instruction]() 
-
-            instruction_len = (instruction >> 6) + 1
-            # print('instruction len', instruction_len)
-            self.pc += instruction_len
+            if IR in self.branchtable:
+                self.branchtable[IR]() 
+            else:
+                raise Exception(f"IR {IR} not in branchtable")
+            
+            # IR_len = (IR >> 6) + 1  # still not sure how this works 
+            # print('IR len', IR_len)
+            # self.pc += IR_len

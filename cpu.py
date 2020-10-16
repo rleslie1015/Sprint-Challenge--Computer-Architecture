@@ -235,12 +235,12 @@ class CPU:
 
             elif IR == JEQ:
                 # operand_a = self.ram[self.pc + 1]
-                if self.FL & etf:
+                if self.FL & etf: # if the etf is true
                     self.pc = self.reg[operand_a]
                 else:
                     self.pc += 2
             elif IR == JNE:
-                if self.FL & etf == 0:
+                if self.FL & etf == 0: # if etf is clear 
                     self.pc = self.reg[operand_a]
                 else:
                     self.pc += 2 
